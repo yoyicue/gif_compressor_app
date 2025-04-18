@@ -1,0 +1,33 @@
+[package]
+name = "gif-compressor"
+version = "0.1.0"
+description = "GIF图片压缩工具"
+authors = ["you"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "gif_compressor_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1.0"
+thiserror = "1.0"
+image = "0.24"
+tempfile = "3.8"
+num_cpus = "1.16"
+clap = { version = "3.2", features = ["derive"] }
+tokio = { version = "1", features = ["rt-multi-thread", "time", "fs", "macros", "process"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2.2.1"
+

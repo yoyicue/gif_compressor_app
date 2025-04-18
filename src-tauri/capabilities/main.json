@@ -1,0 +1,18 @@
+{
+  "identifier": "main-capability",
+  "description": "Main capability for the application",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "core:path:default",
+    "fs:read-app-specific-dirs-recursive",
+    "fs:create-app-specific-dirs",
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "$APPDATA/com.gif-compressor.app/*" }]
+    },
+    "fs:allow-read-file",
+    "fs:allow-write-file"
+  ]
+} 
