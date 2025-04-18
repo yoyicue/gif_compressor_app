@@ -44,8 +44,13 @@ export default function Index() {
             >
               <X size={24} />
             </button>
-            <div className="text-sm opacity-80">
-              <p className="truncate">{file.name}</p>
+            <div className="flex flex-col items-center gap-4">
+              <img 
+                src={file.previewUrl} 
+                alt={file.name}
+                className="max-w-full h-auto rounded-lg max-h-[200px] object-contain"
+              />
+              <p className="text-sm opacity-80 truncate w-full">{file.name}</p>
             </div>
 
             <div>
@@ -101,4 +106,3 @@ export default function Index() {
     </div>
   );
 }
-

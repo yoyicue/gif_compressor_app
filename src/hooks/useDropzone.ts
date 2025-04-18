@@ -3,12 +3,17 @@ import { useState, useCallback } from 'react';
 import { DragEvent, ChangeEvent } from 'react';
 
 interface UseDropzoneProps {
-  onFileAccepted: (file: { name: string, path: string }) => void;
+  onFileAccepted: (file: { name: string, path: string, previewUrl: string }) => void;
   accept?: string[];
 }
 
 export function useDropzone({ onFileAccepted, accept = ['.gif'] }: UseDropzoneProps) {
   const [isDragActive, setIsDragActive] = useState(false);
+
+  const createFileInfo = (file: File, path: string) => {
+    const previewUrl = URL.createObjectURL(file);
+    return { name: file.name, path, previewUrl };
+  };
 
   const onDrop = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
@@ -17,9 +22,8 @@ export function useDropzone({ onFileAccepted, accept = ['.gif'] }: UseDropzonePr
 
       const file = e.dataTransfer.files[0];
       if (file && accept.some(ext => file.name.toLowerCase().endsWith(ext))) {
-        // For Tauri, we can access the file path through a custom property
         const filePath = (file as any).path;
-        onFileAccepted({ name: file.name, path: filePath });
+        onFileAccepted(createFileInfo(file, filePath));
       }
     },
     [onFileAccepted, accept]
@@ -39,9 +43,8 @@ export function useDropzone({ onFileAccepted, accept = ['.gif'] }: UseDropzonePr
     (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file && accept.some(ext => file.name.toLowerCase().endsWith(ext))) {
-        // For Tauri, we can access the file path through a custom property
         const filePath = (file as any).path;
-        onFileAccepted({ name: file.name, path: filePath });
+        onFileAccepted(createFileInfo(file, filePath));
       }
     },
     [onFileAccepted, accept]
