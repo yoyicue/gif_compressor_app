@@ -119,4 +119,127 @@ interface CompressResult {
 
 ## 响应式设计
 
-界面设计考虑了不同屏幕尺寸，使用了弹性布局(Flexbox)来确保在各种设备上的良好显示效果。 
+界面设计考虑了不同屏幕尺寸，使用了弹性布局(Flexbox)来确保在各种设备上的良好显示效果。
+
+## 独立调试前端
+
+在Tauri应用开发过程中，有时我们只需要调试前端部分，而不想等待完整应用的编译。以下是几种方法：
+
+### 方法1：使用Vite开发服务器
+
+项目已经配置了Vite，可以只运行前端部分：
+
+```bash
+# 启动Vite开发服务器
+npm run dev
+```
+
+这将启动开发服务器（通常在 http://localhost:5173），你可以在浏览器中访问前端部分。
+
+### 方法2：创建前端模拟环境
+
+为了在没有Rust后端的情况下测试UI，可以创建模拟数据和API：
+
+1. 在`src`目录下创建`mock`文件夹
+2. 添加模拟API实现：
+
+```typescript
+// src/mock/api.ts
+import { type CompressResult } from '../types';
+
+export const mockInvoke = async (command: string, args?: any) => {
+  switch (command) {
+    case 'check_gifsicle_installed':
+      return true;
+    
+    case 'get_os_type':
+      return 'macos';
+    
+    case 'get_gif_info':
+      // 返回模拟的文件大小和帧数
+      return [1024.5, 30]; // [fileSize, frameCount]
+    
+    case 'compress_gif':
+      // 模拟压缩过程和结果
+      await new Promise(resolve => setTimeout(resolve, 1500)); // 模拟处理时间
+      
+      const mockResult: CompressResult = {
+        success: true,
+        original_size: 1024.5,
+        compressed_size: 512.25,
+        output_path: args.outputPath || '/mock/output.gif',
+        message: '成功压缩GIF到目标大小以下，压缩率: 50.0%'
+      };
+      
+      return mockResult;
+    
+    default:
+      throw new Error(`未实现的模拟命令: ${command}`);
+  }
+};
+```
+
+3. 修改App.tsx以条件性使用模拟API：
+
+```typescript
+// 在App.tsx顶部添加
+import { invoke } from '@tauri-apps/api/core';
+import { mockInvoke } from './mock/api';
+
+// 根据环境决定使用真实还是模拟API
+const apiInvoke = import.meta.env.MODE === 'development' ? mockInvoke : invoke;
+
+// 然后在代码中使用apiInvoke替代invoke
+const result = await apiInvoke('compress_gif', {/*...*/});
+```
+
+### 方法3：使用Storybook
+
+对于更复杂的UI组件测试，可以考虑添加Storybook：
+
+1. 安装Storybook：
+```bash
+npx storybook@latest init
+```
+
+2. 为组件创建stories，例如：
+```typescript
+// src/stories/CompressionForm.stories.tsx
+import type { Meta, StoryObj } from '@storybook/react';
+import { CompressionForm } from '../components/CompressionForm';
+
+const meta: Meta<typeof CompressionForm> = {
+  component: CompressionForm,
+  // ...配置
+};
+
+export default meta;
+type Story = StoryObj<typeof CompressionForm>;
+
+export const Default: Story = {
+  args: {
+    // 组件默认参数
+  },
+};
+
+export const Compressing: Story = {
+  args: {
+    isCompressing: true,
+  },
+};
+```
+
+3. 运行Storybook：
+```bash
+npm run storybook
+```
+
+### 切换回完整应用
+
+完成前端调试后，要测试与后端的完整集成，运行：
+
+```bash
+npm run tauri dev
+```
+
+这将启动完整的Tauri应用，包括Rust后端。 

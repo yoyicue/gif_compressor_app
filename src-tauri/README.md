@@ -26,6 +26,318 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2.2.1"
 ```
 
+## 命令行调试指南
+
+在Tauri应用开发过程中，有时需要单独调试后端Rust代码，而不需要启动整个前端界面。以下是几种命令行调试方法：
+
+### 方法1：添加命令行接口
+
+将后端功能改造为同时支持Tauri和命令行：
+
+1. **修改Cargo.toml添加二进制目标**：
+
+```toml
+[[bin]]
+name = "gif_compressor_cli"
+path = "src/cli.rs"
+```
+
+2. **创建cli.rs文件**：
+
+```rust
+use clap::{App, Arg, SubCommand};
+use gif_compressor_lib::{compress_gif_cli, get_gif_info_cli};
+use std::path::PathBuf;
+
+fn main() {
+    let app = App::new("GIF压缩器")
+        .version("0.1.0")
+        .author("Your Name")
+        .about("GIF图片压缩工具命令行版本")
+        .subcommand(
+            SubCommand::with_name("info")
+                .about("获取GIF文件信息")
+                .arg(
+                    Arg::with_name("INPUT")
+                        .help("输入文件路径")
+                        .required(true)
+                        .index(1),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("compress")
+                .about("压缩GIF文件")
+                .arg(
+                    Arg::with_name("INPUT")
+                        .help("输入文件路径")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("OUTPUT")
+                        .help("输出文件路径")
+                        .required(true)
+                        .index(2),
+                )
+                .arg(
+                    Arg::with_name("target-size")
+                        .long("target-size")
+                        .short("s")
+                        .value_name("KB")
+                        .help("目标文件大小(KB)")
+                        .takes_value(true)
+                        .default_value("500"),
+                )
+                .arg(
+                    Arg::with_name("min-frame-percent")
+                        .long("min-frame")
+                        .short("f")
+                        .value_name("PERCENT")
+                        .help("最小保留帧数百分比(1-100)")
+                        .takes_value(true)
+                        .default_value("10"),
+                )
+                .arg(
+                    Arg::with_name("threads")
+                        .long("threads")
+                        .short("t")
+                        .value_name("NUM")
+                        .help("处理线程数(0=自动)")
+                        .takes_value(true)
+                        .default_value("0"),
+                ),
+        );
+
+    let matches = app.get_matches();
+
+    if let Some(matches) = matches.subcommand_matches("info") {
+        let input = matches.value_of("INPUT").unwrap();
+        
+        match get_gif_info_cli(input) {
+            Ok((size, frames)) => {
+                println!("文件: {}", input);
+                println!("大小: {:.2} KB", size);
+                println!("帧数: {}", frames);
+            }
+            Err(e) => eprintln!("错误: {}", e),
+        }
+    } else if let Some(matches) = matches.subcommand_matches("compress") {
+        let input = matches.value_of("INPUT").unwrap();
+        let output = matches.value_of("OUTPUT").unwrap();
+        let target_size = matches
+            .value_of("target-size")
+            .unwrap()
+            .parse::<f64>()
+            .unwrap_or(500.0);
+        let min_frame_percent = matches
+            .value_of("min-frame-percent")
+            .unwrap()
+            .parse::<u32>()
+            .unwrap_or(10);
+        let threads = matches
+            .value_of("threads")
+            .unwrap()
+            .parse::<usize>()
+            .unwrap_or(0);
+
+        println!("压缩GIF: {} -> {}", input, output);
+        println!("目标大小: {} KB", target_size);
+        println!("最小帧数百分比: {}%", min_frame_percent);
+        println!("线程数: {}", if threads == 0 { "自动" } else { &threads.to_string() });
+
+        match compress_gif_cli(input, output, target_size, min_frame_percent, threads) {
+            Ok((original, compressed)) => {
+                println!("压缩完成!");
+                println!("原始大小: {:.2} KB", original);
+                println!("压缩后大小: {:.2} KB", compressed);
+                println!("压缩率: {:.2}%", (1.0 - (compressed / original)) * 100.0);
+            }
+            Err(e) => eprintln!("压缩失败: {}", e),
+        }
+    }
+}
+```
+
+3. **在lib.rs中添加CLI版本的函数**：
+
+```rust
+// CLI版本的函数，包装给命令行使用
+pub fn get_gif_info_cli(path: &str) -> Result<(f64, usize), String> {
+    let file_size = match get_file_size_kb(path) {
+        Ok(size) => size,
+        Err(e) => return Err(format!("无法获取文件大小: {}", e)),
+    };
+    
+    let frame_count = match get_frame_count(path) {
+        Ok(count) => count,
+        Err(e) => return Err(format!("无法获取帧数: {}", e)),
+    };
+    
+    Ok((file_size, frame_count))
+}
+
+pub fn compress_gif_cli(
+    input_path: &str, 
+    output_path: &str, 
+    target_size: f64, 
+    min_frame_percent: u32, 
+    threads: usize
+) -> Result<(f64, f64), String> {
+    optimize_gif(
+        input_path, 
+        output_path, 
+        target_size, 
+        min_frame_percent, 
+        if threads == 0 { num_cpus::get() } else { threads }
+    ).map_err(|e| format!("{}", e))
+}
+```
+
+4. **编译和运行命令行工具**：
+
+```bash
+# 进入src-tauri目录
+cd src-tauri
+
+# 编译命令行版本
+cargo build --bin gif_compressor_cli
+
+# 运行命令行工具查看帮助
+./target/debug/gif_compressor_cli --help
+
+# 获取GIF信息
+./target/debug/gif_compressor_cli info path/to/input.gif
+
+# 压缩GIF
+./target/debug/gif_compressor_cli compress path/to/input.gif path/to/output.gif --target-size 300 --min-frame 15
+```
+
+### 方法2：使用调试打印
+
+在Rust代码中添加调试输出：
+
+```rust
+// 添加日志输出
+println!("调试: 参数值 = {:?}", value);
+
+// 对于更复杂的结构，可以使用格式化输出
+println!("调试: 结构 = {:#?}", complex_struct);
+
+// 在函数开始和结束时添加标记
+fn some_function() {
+    println!("进入 some_function");
+    // 函数内容...
+    println!("离开 some_function");
+}
+```
+
+然后在命令行运行Tauri应用并观察输出：
+
+```bash
+cd src-tauri
+cargo run
+```
+
+### 方法3：使用Rust测试功能
+
+在lib.rs中添加测试模块：
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_file_size() {
+        // 使用测试文件路径
+        let result = get_file_size_kb("../test_files/test.gif");
+        assert!(result.is_ok());
+        let size = result.unwrap();
+        println!("测试文件大小: {} KB", size);
+        // 添加断言...
+    }
+
+    #[test]
+    fn test_get_frame_count() {
+        let result = get_frame_count("../test_files/test.gif");
+        assert!(result.is_ok());
+        let count = result.unwrap();
+        println!("测试文件帧数: {}", count);
+        // 添加断言...
+    }
+
+    #[test]
+    fn test_compress_gif() {
+        let result = optimize_gif(
+            "../test_files/test.gif",
+            "../test_files/test_compressed.gif",
+            200.0,
+            10,
+            2
+        );
+        assert!(result.is_ok());
+        // 添加更多断言...
+    }
+}
+```
+
+运行测试并查看详细输出：
+
+```bash
+cd src-tauri
+cargo test -- --nocapture
+```
+
+### 方法4：使用LLDB/GDB调试器
+
+对于更复杂的调试需求，可以使用调试器：
+
+```bash
+# 使用LLDB调试(macOS/Linux)
+cd src-tauri
+rustc -g src/lib.rs  # 生成带调试信息的二进制文件
+lldb ./my_debug_binary
+
+# 或使用GDB(主要在Linux上)
+gdb ./my_debug_binary
+```
+
+在VS Code中进行LLDB调试：
+
+1. 安装"CodeLLDB"扩展
+2. 创建`.vscode/launch.json`配置文件：
+
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug Rust Backend",
+            "cargo": {
+                "args": ["build", "--bin=gif_compressor_cli"]
+            },
+            "args": ["compress", "../test_files/test.gif", "../test_files/output.gif"],
+            "cwd": "${workspaceFolder}/src-tauri"
+        }
+    ]
+}
+```
+
+### 方法5：使用性能分析工具
+
+对性能进行分析：
+
+```bash
+# 安装性能分析工具
+cargo install cargo-flamegraph
+
+# 生成火焰图
+cd src-tauri
+cargo flamegraph --bin gif_compressor_cli -- compress path/to/input.gif path/to/output.gif
+```
+
 ## API接口
 
 ### 系统环境接口
