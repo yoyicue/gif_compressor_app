@@ -1,3 +1,4 @@
+
 export const strings = {
   dragDropTitle: "拖拽上传 GIF 或点击选择",
   dragActive: "放开以上传文件",
@@ -16,7 +17,6 @@ export const strings = {
   targetSize: "目标大小 (KB)",
   minFramePercent: "最小帧率百分比",
   threads: "线程数 (0 = 自动)",
-  dragDropToReplace: "拖拽或点击更换GIF",
 };
 
 export const installGuides = {
