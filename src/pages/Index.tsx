@@ -7,12 +7,18 @@ import { InstallGuide } from '../components/InstallGuide';
 import { useFileCompression } from '../hooks/useFileCompression';
 import { strings, defaultOptions } from '../utils/constants';
 import type { FileInfo } from '../types';
+import { X } from 'lucide-react';
 
 export default function Index() {
   const [file, setFile] = useState<FileInfo | null>(null);
   const [outputName, setOutputName] = useState(strings.defaultOutputSuffix);
   const [options, setOptions] = useState(defaultOptions);
   const { isCompressing, error, result, compressFile } = useFileCompression();
+
+  const handleClearFile = () => {
+    setFile(null);
+    setOutputName(strings.defaultOutputSuffix);
+  };
 
   const handleCompress = async () => {
     if (!file) return;
@@ -31,7 +37,13 @@ export default function Index() {
         {!file ? (
           <DragDrop onFileAccepted={setFile} />
         ) : (
-          <div className="glass rounded-2xl p-6 space-y-4 animate-fade-in">
+          <div className="glass rounded-2xl p-6 space-y-4 animate-fade-in relative">
+            <button 
+              onClick={handleClearFile} 
+              className="absolute top-4 right-4 text-red-500 hover:bg-red-500/10 rounded-full p-1 transition-colors"
+            >
+              <X size={24} />
+            </button>
             <div className="text-sm opacity-80">
               <p className="truncate">{file.name}</p>
             </div>
@@ -89,3 +101,4 @@ export default function Index() {
     </div>
   );
 }
+
