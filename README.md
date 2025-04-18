@@ -2,7 +2,6 @@
 
 一个简单高效的GIF图片压缩工具，基于Tauri和React构建的跨平台桌面应用。
 
-![GIF压缩器](src/assets/screenshot.png)
 
 ## 功能特点
 
