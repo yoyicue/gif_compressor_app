@@ -303,10 +303,10 @@ fn extract_frames<P: AsRef<Path>, Q: AsRef<Path>>(
     let delay_str = delay.to_string();
     
     // 检查gifsicle是否存在
-    match Command::new("gifsicle").arg("--version").output() {
-        Ok(_) => {}, // 命令存在，继续执行
-        Err(_) => return Err(GifError::GifsicleNotFound),
-    }
+    let gifsicle_path = match find_gifsicle() {
+        Some(path) => path,
+        None => return Err(GifError::GifsicleNotFound),
+    };
     
     // 构建优化的参数列表
     let mut gifsicle_args = Vec::with_capacity(frame_paths.len() + 8);
@@ -329,7 +329,7 @@ fn extract_frames<P: AsRef<Path>, Q: AsRef<Path>>(
     }
     
     // 执行gifsicle命令
-    let _output = Command::new("gifsicle")
+    let _output = Command::new(&gifsicle_path)
         .args(&gifsicle_args)
         .output()?;
     
@@ -367,6 +367,19 @@ fn process_strategy(
             success: false,
         };
     }
+    
+    // 获取gifsicle路径
+    let gifsicle_path = match find_gifsicle() {
+        Some(path) => path,
+        None => {
+            log("未找到gifsicle程序");
+            return StrategyResult {
+                size: f64::MAX,
+                file: None,
+                success: false,
+            };
+        }
+    };
     
     let skip = strategy.skip;
     let delay = strategy.delay;
@@ -472,7 +485,7 @@ fn process_strategy(
     
     let args = vec!["-O3", &temp_frames_path, "-o", &temp_frames_opt_path];
     
-    let _output = match Command::new("gifsicle")
+    let _output = match Command::new(&gifsicle_path)
         .args(&args)
         .output() {
         Ok(output) => output,
@@ -585,7 +598,7 @@ fn process_strategy(
                 &temp_path
             ];
             
-            let _output = match Command::new("gifsicle")
+            let _output = match Command::new(&gifsicle_path)
                 .args(&args)
                 .output() {
                 Ok(output) if output.status.success() => {
@@ -686,10 +699,10 @@ fn optimize_gif<P: AsRef<Path>, Q: AsRef<Path>>(
     println!("原始帧数: {}", original_frame_count);
     
     // 检查gifsicle是否存在
-    match Command::new("gifsicle").arg("--version").output() {
-        Ok(_) => {}, // 命令存在，继续执行
-        Err(_) => return Err(GifError::GifsicleNotFound),
-    }
+    let gifsicle_path = match find_gifsicle() {
+        Some(path) => path,
+        None => return Err(GifError::GifsicleNotFound),
+    };
     
     // 基础优化 - 使用gifsicle的最高优化级别和更多高级选项
     let temp_file = NamedTempFile::new()?;
@@ -712,7 +725,7 @@ fn optimize_gif<P: AsRef<Path>, Q: AsRef<Path>>(
         &temp_file_opt_path               // 输出文件
     ];
     
-    let _output = Command::new("gifsicle")
+    let _output = Command::new(&gifsicle_path)
         .args(&args)
         .output()?;
     
@@ -888,12 +901,51 @@ struct AppState {
     last_result: std::sync::Mutex<Option<CompressResult>>,
 }
 
+// 查找gifsicle可执行文件的辅助函数
+fn find_gifsicle() -> Option<String> {
+    // 常见的gifsicle安装路径
+    let possible_paths = vec![
+        "gifsicle",                    // PATH中的版本
+        "/opt/homebrew/bin/gifsicle",  // M1/M2 Mac的Homebrew路径
+        "/usr/local/bin/gifsicle",     // Intel Mac的Homebrew路径
+        "/usr/bin/gifsicle",           // Linux常见路径
+        "C:\\Program Files\\gifsicle\\gifsicle.exe" // Windows可能路径
+    ];
+
+    println!("DEBUG: 正在查找gifsicle可执行文件...");
+    
+    for path in possible_paths {
+        println!("DEBUG: 尝试路径: {}", path);
+        match Command::new(path).arg("--version").status() {
+            Ok(status) => {
+                println!("DEBUG: 路径 {} 可用，状态: {}", path, status);
+                return Some(path.to_string());
+            },
+            Err(err) => {
+                println!("DEBUG: 路径 {} 不可用: {}", path, err);
+            }
+        }
+    }
+    
+    println!("DEBUG: 未找到gifsicle可执行文件");
+    None
+}
+
 // 检查gifsicle是否已安装
 #[tauri::command]
 fn check_gifsicle_installed() -> bool {
-    match Command::new("gifsicle").arg("--version").output() {
-        Ok(_) => true,
-        Err(_) => false,
+    println!("DEBUG: 直接使用Command::new检查gifsicle是否已安装");
+    // 先尝试简单的PATH检查
+    let result = Command::new("gifsicle").arg("--version").output();
+    let is_installed = result.is_ok();
+    println!("DEBUG: 简单PATH检查 gifsicle已安装: {}", is_installed);
+    
+    if is_installed {
+        true
+    } else {
+        // 如果PATH检查失败，尝试具体路径
+        println!("DEBUG: PATH检查失败，尝试特定路径");
+        find_gifsicle().is_some()
     }
 }
 

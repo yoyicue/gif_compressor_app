@@ -14,6 +14,10 @@ edition = "2021"
 name = "gif_compressor_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# 开发者工具特性，仅在开发环境使用
+devtools = ["tauri/devtools"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

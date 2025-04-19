@@ -1,6 +1,6 @@
-
 import { useState, useCallback } from 'react';
 import { DragEvent, ChangeEvent } from 'react';
+import { convertFileSrc } from '@tauri-apps/api/core';
 
 interface UseDropzoneProps {
   onFileAccepted: (file: { name: string, path: string, previewUrl: string }) => void;
@@ -11,7 +11,7 @@ export function useDropzone({ onFileAccepted, accept = ['.gif'] }: UseDropzonePr
   const [isDragActive, setIsDragActive] = useState(false);
 
   const createFileInfo = (file: File, path: string) => {
-    const previewUrl = URL.createObjectURL(file);
+    const previewUrl = path ? convertFileSrc(path) : URL.createObjectURL(file);
     return { name: file.name, path, previewUrl };
   };
 

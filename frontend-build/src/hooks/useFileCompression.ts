@@ -1,6 +1,6 @@
-
 import { useState } from 'react';
 import { strings } from '../utils/constants';
+import { invoke } from '@tauri-apps/api/core';
 
 interface CompressionOptions {
   targetSize: number;
@@ -34,26 +34,33 @@ export function useFileCompression() {
       setIsCompressing(true);
       setError(null);
       
-      const [originalSize] = await window.__TAURI__.invoke<[number, number]>('get_gif_info', {
+      const [originalSize] = await invoke<[number, number]>('get_gif_info', { 
         path: inputPath,
       });
 
-      await window.__TAURI__.invoke('compress_gif', {
+      const compressResult = await invoke<{
+        success: boolean,
+        original_size: number,
+        compressed_size: number,
+        output_path: string,
+        message: string
+      }>('compress_gif', {
         inputPath,
         outputPath,
-        options,
-      });
-
-      const [compressedSize] = await window.__TAURI__.invoke<[number, number]>('get_gif_info', {
-        path: outputPath,
+        options: {
+          target_size: options.targetSize,
+          min_frame_percent: options.minFramePercent,
+          threads: options.threads
+        },
       });
 
       setResult({
-        success: true,
-        originalSize,
-        compressedSize,
+        success: compressResult.success,
+        originalSize: compressResult.original_size,
+        compressedSize: compressResult.compressed_size,
       });
     } catch (err) {
+      console.error('Compression error:', err);
       setError(strings.errorGeneric);
       setResult(null);
     } finally {

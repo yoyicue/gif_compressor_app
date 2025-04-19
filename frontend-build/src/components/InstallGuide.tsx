@@ -1,14 +1,6 @@
-
 import { useEffect, useState } from 'react';
 import { strings, installGuides } from '../utils/constants';
-
-declare global {
-  interface Window {
-    __TAURI__: {
-      invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
-    };
-  }
-}
+import { invoke } from '@tauri-apps/api/core';
 
 export function InstallGuide() {
   const [show, setShow] = useState(false);
@@ -18,8 +10,8 @@ export function InstallGuide() {
     async function check() {
       try {
         const [isInstalled, os] = await Promise.all([
-          window.__TAURI__.invoke<boolean>('check_gifsicle_installed'),
-          window.__TAURI__.invoke<string>('get_os_type'),
+          invoke<boolean>('check_gifsicle_installed'),
+          invoke<string>('get_os_type'),
         ]);
 
         if (!isInstalled) {

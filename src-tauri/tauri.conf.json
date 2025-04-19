@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.gif-compressor.app",
   "build": {
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "cd frontend-final && npm run dev",
+    "beforeBuildCommand": "cd frontend-final && npm run build",
     "devUrl": "http://localhost:1420",
-    "frontendDist": "../dist"
+    "frontendDist": "../frontend-final/dist"
   },
   "app": {
     "security": {
